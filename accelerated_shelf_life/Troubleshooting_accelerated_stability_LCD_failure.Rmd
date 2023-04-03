@@ -1,0 +1,79 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Load packages
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(plotly)
+library(scales)
+theme_set(theme_pubr())
+source('/ghds/groups/labdesk/jiwang/analysis/tools/functions_jw.r')
+```
+
+## Check the version of R and packages used
+```{r}
+sessionInfo()
+```
+
+Below  is troubleshooting the LCD failure of HFTWVBGXN for AV360-361 or Td8/Td10 timepoint
+Check for the flowcell metric in R
+```{r}
+acs_instance_select <- c( "acs_default_clia")
+Date_min <- "2023-02-01"
+Date_max <- "2023-03-10"
+
+flowcell_data <- read.csv("/ghds/groups/labdesk/jiwang/analysis/acs_exports/20230320_omni_g360_flowcells.csv") %>%
+  filter(acs_instance %in% acs_instance_select) %>% 
+  mutate(operation_date = substr(created, 1, 10)) %>% 
+  mutate( operation_date = as.Date(as.character(operation_date), format = "%Y-%m-%d")) %>% 
+  select(acs_instance, operation_date, flowcell_id, batch_name, connection_id, sequencer_name, runid,  cluster_density,pf_cluster_density, qscore_1, qscore_2) %>%
+  mutate(CD_status = ifelse(cluster_density >= 170000, "PASS", "FAIL")) %>% 
+  filter(operation_date >= Date_min &  operation_date <= Date_max) 
+
+flowcell_data 
+
+
+## Calculate failure rate by instrument 
+flowcell_instrument_failure_count <- flowcell_data %>% 
+  group_by(sequencer_name) %>% 
+  mutate(total_count = length(runid)) %>% 
+  ungroup() %>% 
+  group_by(sequencer_name, CD_status) %>% 
+  mutate(status_count = length(runid)) %>% 
+  ungroup() 
+flowcell_instrument_failure_count
+
+flowcell_instrument_failure_count_select <- flowcell_instrument_failure_count %>% 
+  select(sequencer_name, total_count, CD_status,  status_count) %>% 
+  arrange(sequencer_name, CD_status) %>% 
+  unique() 
+flowcell_instrument_failure_count_select
+
+flowcell_instrument_failure_rate <- flowcell_instrument_failure_count_select %>%
+  filter(CD_status == "FAIL") %>% 
+  mutate(failure_rate = round( status_count/total_count * 100, 2))
+flowcell_instrument_failure_rate
+```
+
+Plot failure rate by instrument between Feb 1, 2023 - March 10, 2023
+```{r,fig.width=20, fig.height=10, message=FALSE}
+CD_failure_per_instrument_barplot <- ggplot(flowcell_instrument_failure_count_select, aes(x=sequencer_name, y = status_count, fill = CD_status)) +
+  geom_bar(position="stack", stat="identity") +
+  scale_y_continuous(breaks = trans_breaks(identity, identity, n = 5)) +
+  scale_fill_manual(values =  c("red", "royalblue")) +
+  geom_text(data = flowcell_instrument_failure_rate, aes(x=sequencer_name, y = total_count*1.1, label =  paste0(status_count, "FC\n",  failure_rate, "%", sep = "")), color = "black",  size = 6) +
+  labs(title = "G360 v2.11  Cluster Density Failures between Feb 1, 2023 - Mar 10 2023", fill = "G360 Cluster Density Status") +
+  ylab("Number of Flowcells") +
+  xlab("NextSeq") +
+  theme_Publication() +
+  theme(legend.position = 'bottom',
+        axis.text = element_text(size = 20),
+        axis.title = element_text(size = 29),
+        axis.text.x = element_text(angle = 30, size = 16 , hjust = 1))
+CD_failure_per_instrument_barplot 
+```
+
+
