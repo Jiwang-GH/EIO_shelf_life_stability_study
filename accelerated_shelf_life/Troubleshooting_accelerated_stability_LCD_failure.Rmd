@@ -9,8 +9,8 @@ rm(list=ls())
 library(tidyverse)
 library(plotly)
 library(scales)
-theme_set(theme_pubr())
-source('/ghds/groups/labdesk/jiwang/analysis/tools/functions_jw.r')
+# theme_set(theme_pubr())
+source("/home/jiwang/projects/gh_jiwang/EIO_shelf_life_stability_study/tools/functions.r")
 ```
 
 ## Check the version of R and packages used
