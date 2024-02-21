@@ -44,7 +44,7 @@ data_sum_lpc_enc
 
 Plot boxplot for LPC quant by timepoint for VCv2
 ```{r, fig.width=12, fig.height=9, message=FALSE}
-data_select$Time_point <- factor(data_select$Time_point, levels = c("T00", "T04",  "T08"))
+data_select$Time_point <- factor(data_select$Time_point, levels = c("T00", "T04", "T08", "T12"))
 unique(data_select$Time_point)
 
 ggplot(data_select, aes(Time_point, y = LPC_quant)) +
@@ -86,7 +86,7 @@ data_select1_2 <-  data %>%
 
 range(data_select1_2$LPC_quant)
 
-data_select1$Time_point <- factor(data_select1$Time_point, levels = c("T00", "T04", "T08"))
+data_select1$Time_point <- factor(data_select1$Time_point, levels = c("T00", "T04", "T08", "T12"))
 unique(data_select1$Time_point)
 
 ggplot(data_select1, aes(Time_point, y = LPC_quant)) +
@@ -106,7 +106,7 @@ theme(legend.position = 'right',
 
 Conduct analysis on ENC quant for VCv2
 ```{r, fig.width=12, fig.height=9, message=FALSE}
-data_select$Time_point <- factor(data_select$Time_point, levels = c("T00", "T04", "T08"))
+data_select$Time_point <- factor(data_select$Time_point, levels = c("T00", "T04", "T08", "T12"))
 unique(data_select$Time_point)
 
 ggplot(data_select, aes(Time_point, y = EN_quant)) +
@@ -141,7 +141,7 @@ Plot scattor for ENC quant by timepoint for AIO VC and NTC
 data_select1 <-  data %>% 
   filter(Sample_type != "VCv2")
 
-data_select1$Time_point <- factor(data_select1$Time_point, levels = c("T00", "T04", "T08"))
+data_select1$Time_point <- factor(data_select1$Time_point, levels = c("T00", "T04", "T08", "T12"))
 unique(data_select1$Time_point)
 
 ggplot(data_select1, aes(Time_point, y = EN_quant)) +
