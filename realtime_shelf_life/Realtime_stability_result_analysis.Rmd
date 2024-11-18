@@ -1,391 +1,106 @@
 ---
 title: "R Notebook"
-author: "Jinyu Wang, Crista Moreno"
-output:
-  html_document:
-    df_print: paged
-  pdf_document: default
-  word_document: default
+output: html_notebook
 ---
 
-```{r message = FALSE}
-# clear variables
-base::rm(list=ls())
+Load packages
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(plotly)
+library(scales)
 
-# load packages
-base::library(tidyverse)
-base::library(plotly)
-base::library(scales)
 # theme_set(theme_pubr())
-#utils::install.packages("ggthemes")
-base::library(ggthemes)
-#utils::install.packages("colf")
-base::library(colf)
-
-# source custom functions
-# source("/home/jiwang/projects/gh_jiwang/EIO_shelf_life_stability_study/tools/functions.r")
-base::source("./functions_jw.r")
-
-# old data
-# utils::read.csv("/home/jiwang/projects/gh_jiwang/EIO_shelf_life_stability_study/realtime_shelf_life/EIO_realtime_stability_sample_information.csv")
+source("/home/jiwang/projects/gh_jiwang/EIO_shelf_life_stability_study/tools/functions.r")
 ```
-
 ```{r}
-# R version and packages
-utils::sessionInfo()
+sessionInfo()
 ```
 
 
 ```{r}
-data <- 
-  utils::read.csv("./EIO_realtime_stability_sample_information.csv") |>
-  # change to class character
-  dplyr::mutate(run_sample_id = as.character(Sample_ID)) |>
-  # modify run_sample_id
-  dplyr::mutate(run_sample_id =  
-                  ifelse(str_detect(run_sample_id, "^\\d"), 
-                         str_pad(run_sample_id, 9, pad = "0"),
-                         run_sample_id)) |> 
-  # change to class character
-  dplyr::mutate(Sample_type = as.character(Sample_type)) |> 
-  dplyr::mutate(Sample_type = 
-                  ifelse(Sample_type == "AIO Control",
-                         "VC",
-                         Sample_type)) |> 
-  dplyr::mutate(Timepoint_EIOlot = paste(Time_point, EIO_Lot, sep = " "))
+data <- read.csv("/home/jiwang/projects/gh_jiwang/EIO_shelf_life_stability_study/realtime_shelf_life/EIO_realtime_stability_sample_information.csv") %>% 
+  mutate(run_sample_id = as.character(Sample_ID)) %>%
+  mutate(run_sample_id =  ifelse(str_detect(run_sample_id, "^\\d"), str_pad(run_sample_id, 9, pad = "0"), run_sample_id)) %>% 
+  mutate(Sample_type = as.character(Sample_type)) %>% 
+  mutate(Sample_type = ifelse(Sample_type == "AIO Control", "VC", Sample_type)) %>% 
+  mutate(Timepoint_EIOlot = paste(Time_point, EIO_Lot, sep = " "))
 
-#data
-
-# TODO update stability analysis timepoints
-timepoints <- 
-  c("T00", "T04", "T08", "T12", "T16")
-
-# TODO update current timepoint
-current_timepoint <- "T16_"
+data
 ```
-Conduct analysis on LPC quant and ENC quant
 
+Conduct analysis on LPC quant
 ```{r}
-
-# subset for sample type VCv2
-data_select <- 
-  data |> 
+## for plotting by EIO lot and by timepoint
+data_select <- data %>% 
   filter(Sample_type == "VCv2")
 
-base::detach(package:plyr)
-
-# summary statics for LPC and EN
-data_sum_lpc_enc <- 
-  data_select |> 
-  group_by(Time_point) |> 
-  summarise(mean_lpc      = base::mean(LPC_quant),
-            median_lpc    = stats::median(LPC_quant),
-            mean_enc      = base::mean(EN_quant),
-            median_enc    = stats::median(EN_quant),
-            count_samples = base::length(run_sample_id))
-
+detach(package:plyr)
+data_sum_lpc_enc <- data_select   %>% 
+  group_by(Time_point) %>% 
+  summarise(mean_lpc = mean(LPC_quant), median_lpc = median(LPC_quant), mean_enc = mean(EN_quant), median_enc = median(EN_quant), count_samples= length(run_sample_id))
 data_sum_lpc_enc
 ```
 
 Plot boxplot for LPC quant by timepoint for VCv2
 ```{r, fig.width=12, fig.height=9, message=FALSE}
-
-# change to class factor and set levels
-data_select$Time_point <- 
-  factor(data_select$Time_point, 
-         levels = timepoints)
-
-# check time point levels
+data_select$Time_point <- factor(data_select$Time_point, levels = c("T00", "T04",  "T08", "T12", "T16", "T21"))
 unique(data_select$Time_point)
 
-# boxplot for LPC data
-ggplot2::ggplot(data_select,
-                aes(Time_point, 
-                    y = LPC_quant)) +
-  
-  # boxplot
-  ggplot2::geom_boxplot(aes(colour = Time_point)) +
-  
-  # data points
-  ggplot2::geom_point(aes(colour = Time_point, 
-                          size = 1.3, 
-                          alpha = 0.6)) +
-  # color palette
-  ggplot2::scale_color_brewer(palette="Dark2") +
-  
-  # hardcoded y-coordinate position
-  # data summary statistics
-  ggplot2::geom_text(data = data_sum_lpc_enc, 
-                     aes(x = Time_point, 
-                         y = 38, 
-                         label =  paste0("Mean:", round(mean_lpc ,2), "\n",
-                                         "Median:", round(median_lpc,2),
-                                         "\nN: ", count_samples, sep = "")),
-                     color = "black",  
-                     size = 7) +
-  
-  # disable legends size and alpha
-  ggplot2::guides(size = "none",
-                  alpha = "none") +
-  
-  # title
-  ggplot2::labs(title = "LPC Quant By Realtime Stability Study Timepoint-VCv2", 
-                colour  = "Time Point") +
-  
-  #y-axis label
-  ggplot2::ylab("LPC Quant (ng/ul)") +
-  
-  # x-axis label
-  ggplot2::xlab("Time point") +
-  
-  # plot theme
+ggplot(data_select, aes(Time_point, y = LPC_quant)) +
+  geom_boxplot(aes(colour = Time_point)) +
+  geom_point(aes(colour =  Time_point)) +
+  scale_color_brewer(palette="Dark2") +
+  geom_text( data = data_sum_lpc_enc, aes(x = Time_point, y = median_lpc, label =  paste0("Mean:", round(mean_lpc ,2),"\n" , "Median:",  round(median_lpc,2),  "\nN: ", count_samples, sep = "")), color = "black",  size = 7) +
+  labs(title = "LPC Quant By Realtime Stability Study Timepoint-VCv2", colour  = "Time_point") +
+  ylab("LPC Quant (ng/ul)") +
+  xlab("Time_point") +
   theme_Publication() +
-  ggplot2::theme(legend.position = 'right',
-                 legend.direction = 'vertical',
-                 axis.text = element_text(size = 20),
-                 axis.title = element_text(size = 20),
-                 axis.text.x = element_text(angle = 0, size = 20, hjust = 0.5))
-
-# save plot to PNG file
-ggplot2::ggsave(paste0("./", current_timepoint, "LPC_Quant_realtime_stability_study_timepoint_VCv2.png"))
+theme(legend.position = 'right',
+      legend.direction = 'vertical',
+      axis.text = element_text(size = 20),
+      axis.title = element_text(size = 20),
+      axis.text.x = element_text(angle = 0, size = 20, hjust = 0.5))
 ```
 
+
 ```{r}
-
-# range of LPC data
-base::range(data_select$LPC_quant)
-
-# fit analysis of variance model
-model <- 
-  stats::aov( LPC_quant ~ Time_point,
-              data=data_select)
-
+range(data_select$LPC_quant)
+model <- aov( LPC_quant ~ Time_point, data=data_select)
 summary(model)
 # TukeyHSD(model, conf.level=.95)
 ```
 
+
 Plot scatter for LPC quant by timepoint for AIO VC and NTC 
 ```{r, fig.width=12, fig.height=9, message=FALSE}
+data_select1 <-  data %>% 
+  filter((Sample_type != "VCv2") & (!(Time_point == "T21" & Position == 'H:2')) ) 
 
-# subset data for VCv2
-data_select1 <-  
-  data %>% 
-  filter(Sample_type != "VCv2")
-
-# subset data for NTC
-data_select1_1 <-  
-  data %>% 
+data_select1_1 <-  data %>% 
   filter(Sample_type == "NTC")
 
-# check range of LPC data
 range(data_select1_1$LPC_quant)
 
-# subset for VC
-data_select1_2 <-  
-  data %>% 
+
+data_select1_2 <-  data %>% 
   filter(Sample_type == "VC")
 
-# check range of LPC data
 range(data_select1_2$LPC_quant)
 
-# change class of Time_point to class factor and set levels
-data_select1$Time_point <- 
-  factor(data_select1$Time_point, 
-         levels = timepoints)
-
-# check factor levels
+data_select1$Time_point <- factor(data_select1$Time_point, levels = c("T00", "T04", "T08", "T12", "T16", "T21"))
 unique(data_select1$Time_point)
 
-# plot LPC data
-ggplot2::ggplot(data_select1, 
-                aes(Time_point, 
-                    y = LPC_quant)) +
-  # data points
-  ggplot2::geom_point(aes(colour =  Sample_type, 
-                          size = 1.3,
-                          alpha = 0.6)) +
-  # color palette
-  ggplot2::scale_color_manual(values = c("red", "blue")) +
-  
-  # disable legends size and alpha
-  ggplot2::guides(size = "none",
-                  alpha = "none",
-                  color = guide_legend(override.aes = list(size = 5))) + 
-  
-  # title
-  ggplot2::labs(title = "LPC Quant By Realtime Stability Study Timepoint-VC and NTC", 
-                colour  = "Sample Type") +
-  
-  # y-axis label
-  ggplot2::ylab("LPC Quant (ng/ul)") +
-  
-  # x-axis label
-  ggplot2::xlab("Time Point") +
-  
-  # plot theme
+ggplot(data_select1, aes(Time_point, y = LPC_quant)) +
+  geom_point(aes(colour =  Sample_type)) +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(title = "LPC Quant By Realtime Stability Study Timepoint-VC and NTC", colour  = "Sample Type") +
+  ylab("LPC Quant (ng/ul)") +
+  xlab("Time_point") +
   theme_Publication() +
-  ggplot2::theme(legend.position = 'right',
-                 legend.direction = 'vertical',
-                 axis.text = element_text(size = 20),
-                 axis.title = element_text(size = 29),
-                 axis.text.x = element_text(angle = 0, size = 20, hjust = 0.5))
-
-# save plot to PNG file
-ggplot2::ggsave(paste0("./", current_timepoint, "LPC_Quant_realtime_stability_study_timepoint_VC_NTC.png")#, 
-                #width = 12, 
-                #height = 7
-                )
+theme(legend.position = 'right',
+   legend.direction = 'vertical',
+  axis.text = element_text(size = 20),
+    axis.title = element_text(size = 29),
+   axis.text.x = element_text(angle = 0, size = 20, hjust = 0.5))
 ```
-
-
-Conduct analysis on ENC quant for VCv2
-```{r, fig.width=12, fig.height=9, message=FALSE}
-
-# change class of Time_point to factor and set levels
-data_select$Time_point <- 
-  factor(data_select$Time_point, 
-         levels = timepoints)
-
-# check factor levels
-unique(data_select$Time_point)
-
-# box plot for EN quant
-ggplot2::ggplot(data_select, 
-                aes(Time_point, 
-                    y = EN_quant)) +
-  # boxplots
-  ggplot2::geom_boxplot(aes(colour = Time_point)) +
-  
-  # data points
-  ggplot2::geom_point(aes(colour =  Time_point,
-                          size = 1.3, 
-                          alpha = 0.6)) +
-  
-  # color palette
-  ggplot2::scale_color_brewer(palette="Dark2") +
-  
-  # hardcoded red dashed line ???
-  ggplot2::geom_hline( yintercept = 0.35, 
-                       lty = "dashed",
-                       color = "red") +
-  
-  # data summary statistics
-  # hardcoded y-coordinate position
-  ggplot2::geom_text( data = data_sum_lpc_enc, 
-                      aes(x = Time_point, 
-                          y = 2.5, 
-                          label =  paste0("Mean:", round(mean_enc ,2), "\n",
-                                          "Median:", round(median_enc,2),
-                                          "\nN: ", count_samples, sep = "")), 
-                      color = "black",
-                      size = 7) +
-  
-  # disable legends size and alpha
-  ggplot2::guides(size = "none",
-                  alpha = "none") +
-  
-  # title
-  ggplot2::labs(title = "EN Quant By Realtime Stability Study Timepoint-VCv2", 
-                colour  = "Time Point") +
-  
-  # y-axis label
-  ggplot2::ylab("EN Quant (nM)") +
-  
-  # x-axis label
-  ggplot2::xlab("Time Point") +
-  
-  # plot theme
-  theme_Publication() +
-  ggplot2::theme(legend.position = 'right',
-                 legend.direction = 'vertical',
-                 axis.text = element_text(size = 20),
-                 axis.title = element_text(size = 29),
-                 axis.text.x = element_text(angle = 0, size = 20, hjust = 0.5))
-
-# save plot to PNG file
-ggplot2::ggsave(paste0("./", current_timepoint, "EN_Quant_realtime_stability_study_timepoint_VCv2.png"))
-```
-
-
-Conduct Statistical analysis on EN quant
-```{r}
-# fit analysis of variance model
-model <- 
-  stats::aov(EN_quant ~ Time_point, 
-             data = data_select)
-
-summary(model)
-
-TukeyHSD(model, conf.level=.95)
-```
-
-Plot scattor for ENC quant by timepoint for AIO VC and NTC 
-```{r, fig.width=12, fig.height=9, message=FALSE}
-
-data_select1 <-  
-  data %>% 
-  filter(Sample_type != "VCv2")
-
-# change class of 'Time_point' to class factor and set levels
-data_select1$Time_point <-
-  factor(data_select1$Time_point, 
-         levels = timepoints)
-
-# check factor levels
-unique(data_select1$Time_point)
-
-# plot EN quant data
-ggplot2::ggplot(data_select1, 
-                aes(Time_point, 
-                    y = EN_quant)) +
-  
-  # data points
-  ggplot2::geom_point(aes(colour =  Sample_type,
-                          size = 1.3,
-                          alpha = 1)) + 
-  
-  # color palette
-  ggplot2::scale_color_manual(values = c("red", "blue")) +
-  
-  # hardcoded red dashed line ??
-  ggplot2::geom_hline( yintercept = 0.35, 
-                       lty = "dashed",
-                       color = "red") +
-  
-  # title
-  ggplot2::labs(title = "EN Quant By Realtime Stability Study Timepoint-VC and NTC", 
-                colour  = "Sample Type") +
-  
-  # disable legend size and alpha
-  # set legend point size
-  ggplot2::guides(size = "none",
-                  alpha = "none",
-                  color = guide_legend(override.aes = list(size = 5))) +
-  
-  # y-axis label
-  ggplot2::ylab("EN Quant (nM)") +
-  
-  # x-axis label
-  ggplot2::xlab("Time Point") +
-  
-  # plot theme
-  theme_Publication() +
-  ggplot2::theme(legend.position = 'right',
-                 legend.direction = 'vertical',
-                 axis.text = element_text(size = 20),
-                 axis.title = element_text(size = 29),
-                 axis.text.x = element_text(angle = 0, size = 20, hjust = 0.5),
-                 legend.text = element_text(size = 15))
-
-# save plot to PNG file
-ggplot2::ggsave(paste0("./", current_timepoint, 
-                       "EN_Quant_realtime_stability_study_timepoint_VC_NTC.png")#, 
-                #width = 12, 
-                #height = 7
-                )
-```
-
-
-
-
-
